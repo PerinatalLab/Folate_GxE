@@ -54,7 +54,7 @@ Q1_p1724 = read.table("~/Biostuff/MOBA_PDB1724/Data/PDB1724_Q1_v9.csv",h=T,sep="
 mean(Q1_p1724$PREG_ID_1724 %in% candidate_PregIDs_1724)  # 83.30%
 mean(candidate_PregIDs_1724 %in% Q1_p1724$PREG_ID_1724)  # 99.99%
 Q1_p1724 = Q1_p1724[which(Q1_p1724$PREG_ID_1724 %in% candidate_PregIDs_1724),]
-Q1_p1724 = Q1_p1724[,c("PREG_ID_1724","AA85","AA87")]
+Q1_p1724 = Q1_p1724[,c("PREG_ID_1724","AA85","AA87")]  # for BMI estimation
 
 # load FFQ
 FFQ_p1724 = read.table("~/Biostuff/MOBA_PDB1724/Data/PDB1724_Q2_calculation_v9.csv",h=T,sep=",",stringsAsFactors = F)
@@ -129,39 +129,12 @@ fams = m[,c("PREG_ID_1724","PARITET_5","flag1","flag2")]
 mrg = merge(inds,fams,by="PREG_ID_1724",all.x=T)
 head(mrg)
 
-mrg$selector = mrg$flag1*100 + mrg$flag2*10 + mrg$PARITET_5*1
+mrg$selector = mrg$flag1*100 + mrg$flag2*10 + mrg$PARITET_5*1  ##  giving weights
 
 dd = group_by(mrg,SentrixID_1) %>% arrange(selector) %>% summarise(n=n(),mn=min(selector),sl=selector[1],prID=PREG_ID_1724[1]) %>% ungroup()
-
+head(dd)
 table(dd$mn==dd$sl)
 
-### prefered
 
-
-
-table(table(pdb1724_link$SentrixID_1))
-
-
-
-head(pdb1724_link)
-sum(duplicated(pdb1724_link$SentrixID_1))
-attach variable indicating which pregnancy to keep
-
-
-
-q2 = read.table("~/Biostuff/MOBA_EPIDEM_DATA/MoBa v6/Data/Q2_beregning_PDB540_v6.csv",h=T,stringsAsFactors = F,sep=",")
-dim(q2)
-mean(pdb540_fam$V1 %in% q2$PREG_ID_540)
-mean(pdb540_fam$V1 %in% fol$PREG_ID_540)
-mean(q2$PREG_ID_540 %in% fol$PREG_ID_540 )
-
-
-
-head(pdb540_fam)
-head(interkey)
-
-
-fol = read.table("~/Biostuff/MOBA_FOLATE_GXE/pdb540_folate_jonas.csv",sep=",",h=T,stringsAsFactors = F)
-head(fol)
 
 
