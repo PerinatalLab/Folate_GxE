@@ -1,24 +1,28 @@
-library(boot)
 library(dplyr)
-library(data.table)
+library(ggplot2)
 
 #### This code implements semi-parametric bootstraping for the calculation of p-values in any GxE analysis, 
-# using linear regression, and when assumptions are thought not to be met. Can also be used for log regression
+# using linear regression, and when assumptions are thought not to be met. 
+# In our case, bimodal outcome.
+# 2017 August 14. Pol SN
 
-# According to: Bůžková P, et al., Annals of Human Genetics (2011)
+# According to: Bůžková P, et al., Annals of Human Genetics (2011), with slight modification (use resampled
+# residuals instead of fitted values). 
+# More in Bůžková P, Epidemiologic methods, 2016. Resampled residuals requires G-E independence.
 
-# Steps (G= SNP, E= environment, Y= dependent var, Y^: fitted dependent var):
+# Steps (G= SNP, E= environment, Y= dependent var, Y*: Y fixing null hypothesis model):
 
 # 1. Calculate the null hypothesis:
-  # Y= B0 + B1xG + B2xE
-# 2. Save fitted values Y^.
-# 3. Resample Y^ with replacement (bootstrap). 1000 bootstraps for >1 SNP. 10000 for 1 SNP.
-# 4. Use resampled Y^ in:
-  # Y^= B0 + B1xG + B2xE + B3xGxE
-# 5. Save model f statistic
-# 6. Compute original f statistic for the interaction model from the original data by fitting:
- # Y= B0 + B1xG + B2xE + B3xGxE
-# 7. Compute the p-value by comparing test statistic in step 6 to the distribution in step 5.
+# Y= B0 + B1xG + B2xE
+# 2. Calculate interaction and save B3 t-statistic 
+# Y= B0 + B1xG + B2xE + B3xGxE
+# 3. Resample residuals from model in 1 with replacement (bootstrap). 
+# n times of resample?
+# 4. Use resampled Y* in:
+# Y*= B0 + B1xG + B2xE + B3xGxE
+# 5. Save B3 t-statistic
+# 6. Compute the p-value by comparing the original B3 t-statistic in step 2 to the t-statistics obtained in
+# step 5.
 
 # We need a data frame with the following items for each women:
 # G for each SNP id
@@ -33,110 +37,41 @@ mf= readRDS(file="XXX")
 
 myvars= colnames(mf)[2:15] # modify 2:15 according to SNP columns number
 
-# for each SNP, we compute the fitted response for the null hypothesis (B3xGxE= 0) model, 
-# resample Y^, and use in a model with the interaction term. Save model test statistic (1000 models)
-# Steps 1 to 5
+# Compute the B3 t-statistic for model Y= B0 + B1xG + B2xE + B3xGxE 
+inter_tstat=apply(mf[,c(2:15)],2, #2:15 define interval of snps to be tested 
+                  function(x) summary(lm(mf$Y ~ x*E))$coefficients[4,3]) # Y= outcome; E= environmental var
+df=as.data.frame(inter_tstat)
+df=cbind(snpid = rownames(df), df)
+
+# for each SNP, we compute the residuals for the null hypothesis (B3xGxE= 0) model, 
+# resample the residuals, and use as outcome in a linear model with the interaction term. 
+# Add original B3 t-statistic previously obtained for each corresponding snp and for each resample
+# calculate bootstraped p-value = relative freq of original t-statistic> bootstraped t-statistic
 
 outs = NULL
+out= NULL
+outs2= NULL
 for(i in myvars){
-  f <- paste("Y", "~", i,"*E") # change Y= dependent variable name, change E= environment var name
+  f <- paste("Y", "~", i,"+E") # Y= outcome; E= environmental var
   noint= lm(as.formula(f), data=mf,na.action= na.exclude)
-for(c in 1:1000){
-  mf$y= sample(fitted(noint), replace = TRUE)
-    f1 <- paste("y", "~", i,"*E") # change only E= environment var name 
-  mod= lm(as.formula(f1), data=mf,na.action= na.exclude)
-  out = summary(mod)$fstatistic[1]
-  out$id = paste(i)
-    outs = bind_rows(outs, out)
-}
+  for(c in 1:10000){ # resampling n? 1000, 10000?
+    mf$res= sample(resid(noint),replace = TRUE)
+    f1 <- paste("res", "~", i,"*E") # E= environmental var
+    mod= lm(as.formula(f1), data=mf,na.action= na.exclude) # fit null hypothesis model 
+    out$snpid = paste(i)
+    out$tvalue = summary(mod)$coefficients[4,3]  # retreive t-statistic //should we use p-values instead?
+    a1=merge(out, df, by="snpid") # add the t-statistic for the GxE term from original data
+    a1=a1[,c("tvalue", "inter_tstat")]
+    outs= bind_rows(outs, a1)
+    rm(a1)
+  }
+  a3= outs %>%
+    summarise(pvalue = mean((abs(as.numeric(inter_tstat)) < abs(as.numeric(tvalue))))) #compare the 2 t-stats
+  a3$snpid = paste(i)
+  outs2= bind_rows(outs2,a3) # This is the end file we will be interested in
+  outs= NULL
 }
 
 # remove for clearness
 
-rm(c,f,f1,mod,noint,out,i)
-
-# Compute original f statistic for the interaction model from the original data. Step 6
-
-inter_pval=lapply( mf[,c(2:15)], function(x) summary(lm(mf$SVLEN_DG ~ x))$fstatistic[1]) # modify 2:15 
-# according to SNP columns number
-
-# Merge test statistic from original GxE model, with that of the bootstraped models 
-
-interactions= NULL
-interactions=cbind(interactions, inter_pval)
-interactions=cbind(id = rownames(interactions), interactions)
-interactions=as.data.frame(interactions)
-names(outs)[names(outs) == 'value'] <- 'nullhip_pval'
-
-outs=merge(outs, interactions, by="id")
-
-# Compare original test statistiscs with bootstraped test statistics = p-value
-
-df= outs %>%
-  group_by(id, inter_pval<nullhip_pval) %>%
-  summarise (n = n()) %>%
-  mutate(freq = n / sum(n))
-
-# Clear dataframe 
-
-df= df[grep("TRUE", df$`inter_pval < nullhip_pval`), ]
-df=df[,c("id", "freq")]
-
-rm(interactions, outs, inter_pval, myvars)
-
-################### Reproducible example with real data (fake hypothesis)######################
-
-# Interactions between B12 SNPs and maternal age on GA at delivery
-
-# Open data
-
-mf= readRDS(file="/HARVEST/MFR + Harv B12 Mothers.Rda")
-
-names(mf)
-
-#  dataset with bimodal distribution outcome 
-mf=mf[mf$SVLEN_DG<253 | mf$SVLEN_DG>273,]
-
-# for each SNP, we compute the fitted response for the null hypothesis (B3xGxE= 0) model, 
-# resample Y^, and use in a model with the interaction term. Save model test statistic (1000 models)
-# Steps 1 to 5
-
-myvars= colnames(mf)[2:8]
-
-outs = NULL
-for(i in myvars){
-  f <- paste("SVLEN_DG", "~", i,"*MORS_ALDER") 
-  noint= lm(as.formula(f), data=mf,na.action= na.exclude)
-  for(c in 1:1000){
-    mf$y= sample(fitted(noint), replace = TRUE)
-    f1 <- paste("y", "~", i,"*MORS_ALDER") 
-    mod= lm(as.formula(f1), data=mf,na.action= na.exclude)
-    out = summary(mod)$fstatistic[1]
-    out$id = paste(i)
-    outs = bind_rows(outs, out)
-  }
-}
-
-rm(c,f,f1,mod,noint,out,i)
-
-inter_pval=lapply( mf[,c(2:8)], function(x) summary(lm(mf$SVLEN_DG ~ x))$fstatistic[1])
-
-
-interactions= NULL
-interactions=cbind(interactions, inter_pval)
-interactions=cbind(id = rownames(interactions), interactions)
-interactions=as.data.frame(interactions)
-names(outs)[names(outs) == 'value'] <- 'nullhip_pval'
-
-outs=merge(outs, interactions, by="id")
-
-df= outs %>%
-  group_by(id, inter_pval<nullhip_pval) %>%
-  summarise (n = n()) %>%
-  mutate(freq = n / sum(n))
-
-
-df= df[grep("TRUE", df$`inter_pval < nullhip_pval`), ]
-df=df[,c("id", "freq")]
-
-rm(interactions, outs, inter_pval, myvars)
+rm(a3, c,f,f1,i,inter_tstat,mod, noint, out, outs, myvars)
