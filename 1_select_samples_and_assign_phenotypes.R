@@ -293,7 +293,7 @@ if ( length(grep("modified",report))>0) {
 git_hash = system("git log --pretty=format:'%h' -n 1",intern = T)  # get recent git commit version
 }
 time_stamp = substr(Sys.time(),1,10)
-file_name = paste("FolGxEdata_",git_hash,"_n",nrow(fin),"_",time_stamp,".RData",sep="")
+file_name = paste("FolGxEdata_JB_",git_hash,"_n",nrow(fin),"_",time_stamp,".RData",sep="")
 save(list="fin",file = paste("~/Biostuff/MOBA_FOLATE_GXE/",file_name,sep=""))
 
 
