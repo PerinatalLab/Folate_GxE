@@ -251,7 +251,7 @@ fin = fin[which(fin$flag1==0),] # gestAge and FFQ answers must be present
 bad1 = which(fin$FSTART %in% c(2,3))
 bad2 = which(fin$LEIE %in% c(2,3))
 bad3 = which(fin$KSNITT %in% c(1))
-bad4 = which(fin$VANNAVGANG %in% c(1,2,3)) # ***
+#bad4 = which(fin$VANNAVGANG %in% c(1,2,3)) # ***
 bad5 = which(fin$IVF %in% c(1,2,9))
 bad6 = which(fin$PREEKL_EKLAMPSI == 1)
 #bad7 = which( (is.na(m$AA85))|(is.na(m$AA87)) )
@@ -261,7 +261,7 @@ bad6 = which(fin$PREEKL_EKLAMPSI == 1)
 bad11 = which((fin$KJ < 2500)|(fin$KJ > 20000))  # hist(m$KJ,breaks=100,col="Grey")
 bad12 = which( is.na(fin$FLERFODSEL)|(fin$FLERFODSEL==1) )
 #bad13 = which( is.na(fin$folate_suppl)&(!is.na(fin$FOLAT)) )
-bad_rix = unique(c(bad1,bad2,bad3,bad4,bad5,bad6,bad11,bad12)) #bad7,bad8,bad9,bad10,bad13
+bad_rix = unique(c(bad1,bad2,bad3,bad5,bad6,bad11,bad12)) #bad4,bad7,bad8,bad9,bad10,bad13
 fin = fin[-bad_rix,]; rm(bad_rix)
 
 
@@ -293,7 +293,7 @@ if ( length(grep("modified",report))>0) {
 git_hash = system("git log --pretty=format:'%h' -n 1",intern = T)  # get recent git commit version
 }
 time_stamp = substr(Sys.time(),1,10)
-file_name = paste("FolGxEdata_JB_",git_hash,"_n",nrow(fin),"_",time_stamp,".RData",sep="")
+file_name = paste("FolGxE_moms_JB_",git_hash,"_n",nrow(fin),"_",time_stamp,".RData",sep="")
 save(list="fin",file = paste("~/Biostuff/MOBA_FOLATE_GXE/",file_name,sep=""))
 
 
