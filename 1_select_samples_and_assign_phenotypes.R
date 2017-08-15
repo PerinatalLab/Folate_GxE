@@ -89,7 +89,7 @@ dists = (m$V3 - median(m$V3))^2*evs[1] + (m$V4 - median(m$V4))^2*evs[2] +
 dists = sqrt(dists)
 
 ## identify PCA outliers
-mean(dists>0.007)  # suggested fraction of ethnic outliers  (~2%)
+#mean(dists>0.007)  # suggested fraction of ethnic outliers  (~2%)
 pca_outlier_IDs = m$V2[which(dists>0.007)]  # arbitrary  ***
 # note: 0.007 threshold is set according to jump in min Pval in Folate association with 20 PCs
 
@@ -212,7 +212,7 @@ mrg = merge(inds,fams,by="PREG_ID_1724",all=F)  # all.x=T
 
 # assign importance to each flag
 mrg$selector = mrg$flag1*100 + mrg$flag2*10 + mrg$flag3*1  ##  giving weights
-table(mrg$selector)
+#table(mrg$selector)
 
 # for each mother choose the pregnancy with the best quality data
 
@@ -238,7 +238,7 @@ dd = dd[,c("SentrixID_1","PREG_ID_1724")]
 dd = as.data.frame(dd) # table(table(dd$SentrixID_1)); table(table(dd$PREG_ID_1724))
 
 ### final dataset
-fin = m[which(m$PREG_ID_1724 %in% dd$PREG_ID_1724),]
+fin = merge(dd,m,by="PREG_ID_1724",all=F)
 # table(fin$flag1,useNA = "a"); table(fin$flag2,useNA = "a")
 
 ######################
@@ -265,7 +265,7 @@ bad_rix = unique(c(bad1,bad2,bad3,bad4,bad5,bad6,bad11,bad12)) #bad7,bad8,bad9,b
 fin = fin[-bad_rix,]; rm(bad_rix)
 
 
-fin = fin[,c("PREG_ID_1724","SVLEN_DG","MORS_ALDER","PARITET_5","VANNAVGANG","VEKT","KJONN","KJ","FOLAT","folate_food","folate_suppl")]
+fin = fin[,c("SentrixID_1","PREG_ID_1724","SVLEN_DG","MORS_ALDER","PARITET_5","VANNAVGANG","VEKT","KJONN","KJ","FOLAT","folate_food","folate_suppl")]
 
 # some rearangements
 rix_mis = which(is.na(fin$folate_food))
@@ -295,6 +295,5 @@ git_hash = system("git log --pretty=format:'%h' -n 1",intern = T)  # get recent 
 time_stamp = substr(Sys.time(),1,10)
 file_name = paste("FolGxEdata_JB_",git_hash,"_n",nrow(fin),"_",time_stamp,".RData",sep="")
 save(list="fin",file = paste("~/Biostuff/MOBA_FOLATE_GXE/",file_name,sep=""))
-
 
 
