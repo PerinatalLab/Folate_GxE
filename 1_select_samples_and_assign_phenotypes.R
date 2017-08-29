@@ -1,12 +1,14 @@
 
 ### prepare sample list and phenotype file for Folate GxE study in PDB540 and PDB1724
 ### main tasks: 1) avoid overlap 2) assign one pregnancy to one mother 3) generate pheno file
-### 2017 August 10-15. Jonas B.
+### 2017 August 10-15. Update Aug 29. Jonas B.
+
+# location on Mac: /Users/jb/Dropbox/GIT/FOLATE_GxE/2017/1_select_samples_and_assign_phenotypes.R
 
 # THESE INPUT FILES WILL BE NEEDED ON THE GO
 # "~/Biostuff/MOBA_PDB1724/interkey_20170721_jb.txt"
-# "~/Biostuff/MOBA_EPIDEM_DATA/MoBa_v9/PDB540_SV_INFO_v9.csv"
-# "~/Biostuff/MOBA_GENETIC_DATA/MoBa_QCed_5530/H_FINAL/MoBa_5530_EurQC_hg19.fam"
+# "~/Biostuff/MOBA_PDB540/v9/PDB540_SV_INFO_v9.csv"
+# "~/Biostuff/MOBA_GENETIC_DATA/MoBa_QCed_5530/H_FINAL/MoBa_5530_EurQC_hg19.fam"  # this should be changed later ***
 # "~/Biostuff/MOBA_PDB1724/sample_flag_list-20170522.txt"
 # "~/Biostuff/MOBA_PDB1724/PCA/pca.eigenvec"
 # "~/Biostuff/MOBA_PDB1724/PCA/pca.eigenval"
@@ -16,7 +18,7 @@
 # "~/Biostuff/MOBA_PDB1724/Data/PDB1724_MBRN_460_v9.csv"
 # "~/Biostuff/MOBA_PDB1724/Data/PDB1724_Q1_v9.csv"
 # "~/Biostuff/MOBA_PDB1724/Data/PDB1724_Q2_calculation_v9.csv"
-# "~/Biostuff/MOBA_FOLATE_GXE/pdb540_folate_jonas.csv"
+# "~/Biostuff/MOBA_PDB540/Prosjekt_540_kosttilskudd.csv"
 
 # REMAINING TO DO:
 # ... think of including Questionnaire version: "VERSJON_KOST_TBL1"
@@ -32,7 +34,7 @@
 interkey = read.table("~/Biostuff/MOBA_PDB1724/interkey_20170721_jb.txt",h=T,stringsAsFactors = F)
 
 ####   PROJECT PDB 540
-pdb540_inf = read.table("~/Biostuff/MOBA_EPIDEM_DATA/MoBa_v9/PDB540_SV_INFO_v9.csv",h=T,sep=",",stringsAsFactors = F)
+pdb540_inf = read.table("~/Biostuff/MOBA_PDB540/v9/PDB540_SV_INFO_v9.csv",h=T,sep=",",stringsAsFactors = F)
 pdb540_fam = read.table("~/Biostuff/MOBA_GENETIC_DATA/MoBa_QCed_5530/H_FINAL/MoBa_5530_EurQC_hg19.fam",h=F,stringsAsFactors = F)
 pdb540_fam = pdb540_fam[which(substr(pdb540_fam$V2,5,5)=="M"),]
 pdb540_fam = pdb540_fam[which(pdb540_fam$V1 %in% pdb540_inf$PREG_ID_540),]  # only legally valid for analysis
@@ -86,7 +88,7 @@ dists = (m$V3 - median(m$V3))^2*evs[1] + (m$V4 - median(m$V4))^2*evs[2] +
         (m$V17 - median(m$V17))^2*evs[15] + (m$V18 - median(m$V18))^2*evs[16] +
         (m$V19 - median(m$V19))^2*evs[17] + (m$V20 - median(m$V20))^2*evs[18] +
         (m$V21 - median(m$V21))^2*evs[19] + (m$V22 - median(m$V22))^2*evs[20] 
-dists = sqrt(dists)
+dists = sqrt(dists); hist(dists,breaks=1000,col="grey"); abline(v=0.007,col="red")
 
 ## identify PCA outliers
 #mean(dists>0.007)  # suggested fraction of ethnic outliers  (~2%)
@@ -126,7 +128,32 @@ Q1_p1724 = read.table("~/Biostuff/MOBA_PDB1724/Data/PDB1724_Q1_v9.csv",h=T,sep="
 #mean(Q1_p1724$PREG_ID_1724 %in% candidate_PregIDs_1724)
 #mean(candidate_PregIDs_1724 %in% Q1_p1724$PREG_ID_1724)
 Q1_p1724 = Q1_p1724[which(Q1_p1724$PREG_ID_1724 %in% candidate_PregIDs_1724),]
-Q1_p1724 = Q1_p1724[,c("PREG_ID_1724","AA85","AA87")]  # for BMI estimation
+Q1_p1724 = Q1_p1724[,c("PREG_ID_1724","AA85","AA87",paste("AA",c(939:947,1122),sep=""))] # BMI and Supplements
+
+# mini-clean of Q1  (BMI related)
+
+ix1 = which(Q1_p1724$AA85>250)
+Q1_p1724$AA85[ix1] = Q1_p1724$AA85[ix1] / 10
+
+ix2 = which(Q1_p1724$AA85<20)
+Q1_p1724$AA85[ix2] = Q1_p1724$AA85[ix2]*10 + 1
+
+ix3 = which((Q1_p1724$AA87<120)&(Q1_p1724$AA87>20))
+Q1_p1724$AA87[ix3] = Q1_p1724$AA87[ix3] + 100
+
+ix4 = which((Q1_p1724$AA87<120)&(Q1_p1724$AA87<=20))
+Q1_p1724$AA87[ix4] = Q1_p1724$AA87[ix4] * 10
+
+Q1_p1724$AA85[which(Q1_p1724$AA85<25)] = NA
+
+# doublecheck
+#hist(Q1_p1724$AA85)
+#hist(Q1_p1724$AA87)
+#plot(Q1_p1724$AA85 ~ Q1_p1724$AA87)
+#ix = unique(c(ix1,ix2,ix3,ix4))
+#points(y = Q1_p1724$AA85[ix] , x =  Q1_p1724$AA87[ix],pch=19,col="orange",cex=0.7)
+
+
 
 # load FFQ
 FFQ_p1724 = read.table("~/Biostuff/MOBA_PDB1724/Data/PDB1724_Q2_calculation_v9.csv",h=T,sep=",",stringsAsFactors = F)
@@ -136,7 +163,8 @@ FFQ_p1724 = FFQ_p1724[which(FFQ_p1724$PREG_ID_1724 %in% candidate_PregIDs_1724),
 FFQ_p1724 = FFQ_p1724[,c("PREG_ID_1724","KJ","FOLAT")]
 
 # load and add Folate from supplements estimates
-fol = read.table("~/Biostuff/MOBA_FOLATE_GXE/pdb540_folate_jonas.csv",h=T,sep=",",stringsAsFactors = F)
+#fol = read.table("~/Biostuff/MOBA_FOLATE_GXE/pdb540_folate_jonas.csv",h=T,sep=",",stringsAsFactors = F) # OLD***
+fol = read.table("~/Biostuff/MOBA_PDB540/Prosjekt_540_kosttilskudd.csv",h=T,sep=",",stringsAsFactors = F)
 fol = fol[which(fol$PREG_ID_540 %in% interkey$PREG_ID_540),]
 fol = merge(interkey,fol,by="PREG_ID_540",all=F)
 
@@ -145,7 +173,23 @@ m2 = merge(mfr_p1724,Q1_p1724,by="PREG_ID_1724",all=T)
 m1 = merge(m2,FFQ_p1724,by="PREG_ID_1724",all=T)
 m = merge(m1,fol,by="PREG_ID_1724",all.x=T)
 
-#table(FFQ_NA=is.na(m$FOLAT),SUP_NA=is.na(m$folate_food))
+##### GAIN SOME FOLATE-RELATED INFO FROM Q1
+
+# the definite-non-users of folate suplements
+ix = which( (m$AA939==1) & ((m$AA1122 != 1)|(is.na(m$AA1122))) & (is.na(m$AA947)) &
+     (is.na(m$AA943))&(is.na(m$AA944))&(is.na(m$AA945))&(is.na(m$AA946)) ) 
+#mean(m$folat_ug[ix],na.rm=T)
+#hist(m$folat_ug[ix],breaks=100,col="grey",xlim=range(m$folat_ug,na.rm=T))
+#hist(m$folat_ug,breaks=100,col="grey",xlim=range(m$folat_ug,na.rm=T))
+
+# impute to zero supplement-folate consumption
+old_vals = m$folat_ug[ix]
+new_vals = old_vals
+new_vals[which(is.na(new_vals))] = 0  ###  best guess !
+m$folat_ug[ix] = new_vals   # re-assigne imputed
+#table(!is.na(m$folat_ug))
+
+
 
 
 ######  PREVIEW  #######
@@ -165,9 +209,11 @@ m = merge(m1,fol,by="PREG_ID_1724",all.x=T)
 # table(is.na(m$FOLAT))
 
 
+
 ###  essential data, required
 bad00 = which(is.na(m$SVLEN_DG))
-bad01 = which(is.na(m$KJ)) #  same as folate is missing
+bad01 = which(is.na(m$folat_ug)&(is.na(m$FOLAT))) # almost the same as missing Q2, but a bit more inclusive
+#bad01 = which(is.na(m$KJ)) #  same as missing Q2
 bad_rix = unique(c(bad00,bad01))
 m$flag1 = 0
 m$flag1[bad_rix] = 1
@@ -186,8 +232,9 @@ bad9 = which( (m$AA87<125)|(m$AA85>200) )
 bad10 = which(m$SVLEN_DG > 311)
 bad11 = which((m$KJ < 2000)|(m$KJ > 20000))  # hist(m$KJ,breaks=100,col="Grey")
 bad12 = which( is.na(m$FLERFODSEL)|(m$FLERFODSEL==1) )
-bad13 = which( is.na(m$folate_suppl)&(!is.na(m$FOLAT)) )
-bad_rix = unique(c(bad1,bad2,bad3,bad4,bad5,bad6,bad7,bad8,bad9,bad10,bad11,bad12,bad13))
+bad13 = which( is.na(m$folat_ug)&(!is.na(m$FOLAT)) )
+bad14 = which( is.na(!m$folat_ug)&(is.na(m$FOLAT)) )
+bad_rix = unique(c(bad1,bad2,bad3,bad4,bad5,bad6,bad7,bad8,bad9,bad10,bad11,bad12,bad13,bad14))
 m$flag2 = 0
 m$flag2[bad_rix] = 1
 rm(bad_rix)
@@ -226,7 +273,7 @@ dd = group_by(mrg,SentrixID_1) %>% arrange(selector) %>%
 
 # preview
 #sum((dd$n>1)&(dd$mn==dd$mx)) # these were not resolved (n=2)
-#sum((dd$n>1)&(dd$mn<dd$mx))  # these were inteligently resolved (n=391)
+#sum((dd$n>1)&(dd$mn<dd$mx))  # these were inteligently resolved (n=387)
 
 # example of benefits:
 #dd[which(dd$n==3),]
@@ -245,7 +292,7 @@ fin = merge(dd,m,by="PREG_ID_1724",all=F)
 ######################   CLEANING
 ######################
 
-fin = fin[which(fin$flag1==0),] # gestAge and FFQ answers must be present
+fin = fin[which(fin$flag1==0),] # gestAge and Folate answers must be present
 
 
 bad1 = which(fin$FSTART %in% c(2,3))
@@ -260,20 +307,28 @@ bad6 = which(fin$PREEKL_EKLAMPSI == 1)
 #bad10 = which(m$SVLEN_DG > 311)
 bad11 = which((fin$KJ < 2500)|(fin$KJ > 20000))  # hist(m$KJ,breaks=100,col="Grey")
 bad12 = which( is.na(fin$FLERFODSEL)|(fin$FLERFODSEL==1) )
-#bad13 = which( is.na(fin$folate_suppl)&(!is.na(fin$FOLAT)) )
-bad_rix = unique(c(bad1,bad2,bad3,bad5,bad6,bad11,bad12)) #bad4,bad7,bad8,bad9,bad10,bad13
+#bad13 = which( is.na(m$folat_ug)&(!is.na(m$FOLAT)) )
+#bad14 = which( is.na(!m$folat_ug)&(is.na(m$FOLAT)) )
+bad_rix = unique(c(bad1,bad2,bad3,bad5,bad6,bad11,bad12)) #bad4,bad7,bad8,bad9,bad10,bad13,bad14
 fin = fin[-bad_rix,]; rm(bad_rix)
 
-
-fin = fin[,c("SentrixID_1","PREG_ID_1724","SVLEN_DG","MORS_ALDER","PARITET_5","VANNAVGANG","VEKT","KJONN","KJ","FOLAT","folate_food","folate_suppl")]
+fin = fin[,c("SentrixID_1","PREG_ID_1724","SVLEN_DG","MORS_ALDER","AA85","AA87","PARITET_5","VANNAVGANG","VEKT","KJONN","KJ","FOLAT","folat_ug")]
+head(fin)
 
 # some rearangements
-rix_mis = which(is.na(fin$folate_food))
-fin$folate_food[rix_mis] = fin$FOLAT[rix_mis]
-fin$folate_food_adj = fin$folate_food / fin$KJ * median(fin$KJ) # normalize
-fin$folate_total = fin$folate_food_adj*0.6 + fin$folate_suppl # standard formula
+fin$folate_food = fin$FOLAT  # rename
+fin$folate_suppl = fin$folat_ug # rename
+fin = fin[,which(!colnames(fin) %in% c("FOLAT","folat_ug"))]
+fin$BMI = fin$AA85 / (fin$AA87/100)^2; # hist(fin$BMI,breaks=100,col="grey")
+fin$folate_food_adj1 = fin$folate_food / fin$KJ * median(fin$KJ,na.rm=T) # normalize based on energy intake
+fin$folate_food_adj2 = fin$folate_food / fin$AA85 * median(fin$AA85,na.rm=T) # normalize based on weight
+fin$folate_food_adj3 = fin$folate_food / fin$BMI * median(fin$BMI,na.rm=T) # normalize based on BMI
+fin$folate_total1 = fin$folate_food_adj1*0.6 + fin$folate_suppl # standard formula
+fin$folate_total2 = fin$folate_food_adj2*0.6 + fin$folate_suppl # standard formula
+fin$folate_total3 = fin$folate_food_adj3*0.6 + fin$folate_suppl # standard formula
+head(fin)
 
-# doublecheck
+# doublecheck - OLD***
 #table(is.na(fin$folate_total))  # there should be some missing values
 #hist(fin$KJ,breaks=100,col="grey"); abline(v=2500)
 #hist(fin$folate_food,breaks=100,col="grey")
@@ -281,6 +336,7 @@ fin$folate_total = fin$folate_food_adj*0.6 + fin$folate_suppl # standard formula
 #plot(fin$folate_food ~ fin$KJ)
 #plot(fin$folate_food_adj ~ fin$KJ)
 #summary(lm(fin$folate_food_adj ~ fin$KJ))
+
 
 
 ####  SAVING AND FILE_NAMING
